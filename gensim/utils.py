@@ -24,6 +24,8 @@ from functools import wraps # for `synchronous` function lock
 from htmlentitydefs import name2codepoint as n2cp # for `decode_htmlentities`
 import multiprocessing
 import shutil
+import numpy as np
+from gensim.corpora.dictionary import Dictionary
 
 try:
     from pattern.en import parse
@@ -247,6 +249,29 @@ def dict_from_corpus(corpus):
     num_terms = 1 + get_max_id(corpus)
     id2word = FakeDict(num_terms)
     return id2word
+
+
+def real_dict_from_corpus(corpus):
+    """
+    Scan corpus for all word ids that appear in it, then construct and return
+    Dictionary with a mapping  which maps each ``wordId -> str(wordId)``.
+
+    The resulting mapping only covers words actually used in the corpus,
+    up to the highest wordId found.
+    """
+    num_terms = 1 + get_max_id(corpus)
+    result = Dictionary()
+    docfreqs = np.zeros((num_terms), dtype=np.int64)
+    for document in corpus:
+        result.num_docs += 1
+        result.num_nnz += len(document)
+        for wordid, word in document:
+            docfreqs[wordid] += word
+            result.num_pos += word
+    for wordid, docfreq in enumerate(docfreqs):
+        result.token2id[str(wordid)] = wordid
+        result.dfs[wordid] = int(docfreq)
+    return result
 
 
 def is_corpus(obj):
